@@ -1,0 +1,68 @@
+import requests
+from bs4 import BeautifulSoup
+
+def get_athlete_code(athlete_name):
+    # Search URL on World Athletics
+    search_url = f"https://www.worldathletics.org/search/athletes?query={athlete_name.replace(' ', '%20')}"
+    print(f"Search URL: {search_url}")  # Debugging print statement to check the search URL
+
+    # Fetch the search results page
+    response = requests.get(search_url)
+    if response.status_code != 200:
+        return f"Error: Unable to fetch search results (status code: {response.status_code})"
+
+    # Parse the HTML content of the search results page
+    soup = BeautifulSoup(response.content, 'lxml')
+
+    # Find the athlete's profile link
+    athlete_profile = None
+    for a in soup.find_all('a', href=True):
+        if athlete_name.lower() in a.text.lower():
+            athlete_profile = a
+            break
+
+    if not athlete_profile:
+        return "Error: Athlete not found"
+
+    # Extract the athlete profile URL
+    profile_url = "https://www.worldathletics.org" + athlete_profile['href']
+    print(f"Profile URL: {profile_url}")  # Debugging print statement to check the profile URL
+
+    # Fetch the athlete's profile page
+    profile_response = requests.get(profile_url)
+    if profile_response.status_code != 200:
+        return f"Error: Unable to fetch athlete profile (status code: {profile_response.status_code})"
+
+    # Parse the athlete profile page
+    profile_soup = BeautifulSoup(profile_response.content, 'lxml')
+
+    # Extract the athlete code
+    athlete_code_tag = profile_soup.find('div', {'class': 'profile__info__detail'})
+    if not athlete_code_tag:
+        return "Error: Unable to find athlete code"
+
+    athlete_code = None
+    for span in athlete_code_tag.find_all('span'):
+        if 'Athlete Code' in span.text:
+            athlete_code = span.find_next('span').text.strip()
+            break
+    
+    if not athlete_code:
+        return "Error: Unable to extract athlete code"
+    
+    return {
+        'name': athlete_name,
+        'athlete_code': athlete_code,
+        'profile_url': profile_url
+    }
+
+# Example usage
+athlete_name = "Ana Cabecinha"
+info = get_athlete_code(athlete_name)
+if isinstance(info, dict):
+    print(f"Name: {info['name']}")
+    print(f"Athlete Code: {info['athlete_code']}")
+    print(f"Profile URL: {info['profile_url']}")
+else:
+    print(info)
+
